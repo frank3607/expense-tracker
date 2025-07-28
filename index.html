@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expense Tracker</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #eef2f3, #dfe9f3);
+      margin: 0;
+      padding: 2rem;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      animation: fadeIn 0.8s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1, h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    input {
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+    }
+
+    input:focus {
+      border-color: #4e91fc;
+      outline: none;
+    }
+
+    button {
+      padding: 0.75rem;
+      border: none;
+      border-radius: 8px;
+      background-color: #4e91fc;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #3a7be0;
+    }
+
+    .expense-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .expense-details {
+      flex: 1;
+    }
+
+    .expense-actions button {
+      background-color: #f0f0f0;
+      color: #555;
+      margin-left: 0.5rem;
+    }
+
+    .expense-actions button:hover {
+      background-color: #ddd;
+    }
+
+    @media (max-width: 600px) {
+      .expense-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .expense-actions {
+        align-self: flex-end;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Expense Tracker</h1>
+    <form id="expense-form">
+      <input type="number" id="amount" placeholder="Amount" required />
+      <input type="text" id="category" placeholder="Category" required />
+      <input type="text" id="description" placeholder="Description" />
+      <button type="submit">Add Expense</button>
+    </form>
+
+    <h2>Total Spent: ₹<span id="total">0</span></h2>
+
+    <ul id="expenses"></ul>
+  </div>
+
+  <script>
+    const API = 'http://localhost:5000/api/expenses';
+    const list = document.getElementById('expenses');
+    const totalEl = document.getElementById('total');
+
+    async function fetchExpenses() {
+      const res = await fetch(API);
+      const data = await res.json();
+      list.innerHTML = '';
+      let total = 0;
+
+      data.forEach(exp => {
+        total += exp.amount;
+
+        const li = document.createElement('li');
+        li.className = 'expense-item';
+
+        const details = document.createElement('div');
+        details.className = 'expense-details';
+        details.innerHTML = `
+          <strong>₹${exp.amount.toLocaleString('en-IN')}</strong> - ${exp.category}
+          <em>(${exp.description})</em>
+        `;
+
+        const actions = document.createElement('div');
+        actions.className = 'expense-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => editExpense(exp);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = () => deleteExpense(exp._id);
+
+        actions.append(editBtn, deleteBtn);
+        li.append(details, actions);
+        list.appendChild(li);
+      });
+
+      totalEl.textContent = total.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    async function deleteExpense(id) {
+      await fetch(`${API}/${id}`, { method: 'DELETE' });
+      fetchExpenses();
+    }
+
+    function editExpense(exp) {
+      document.getElementById('amount').value = exp.amount;
+      document.getElementById('category').value = exp.category;
+      document.getElementById('description').value = exp.description;
+
+      const form = document.getElementById('expense-form');
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const updated = {
+          amount: parseFloat(document.getElementById('amount').value),
+          category: document.getElementById('category').value,
+          description: document.getElementById('description').value
+        };
+        await fetch(`${API}/${exp._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        });
+        form.reset();
+        form.onsubmit = handleAddExpense;
+        fetchExpenses();
+      };
+    }
+
+    async function handleAddExpense(e) {
+      e.preventDefault();
+      const newExpense = {
+        amount: parseFloat(document.getElementById('amount').value),
+        category: document.getElementById('category').value,
+        description: document.getElementById('description').value
+      };
+      await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newExpense)
+      });
+      e.target.reset();
+      fetchExpenses();
+    }
+
+    document.getElementById('expense-form').onsubmit = handleAddExpense;
+    fetchExpenses();
+  </script>
+</body>
+</html>
